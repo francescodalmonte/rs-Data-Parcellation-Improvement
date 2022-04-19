@@ -1,2 +1,2 @@
-# rs-fMRI_data_parcellation_improvement
-Refining the segmentation of rs-fMRI data functional parcellation
+# rs-Data Parcellation Improvement
+Algorithm to automatically refine an existing parcellation of rs-fMRI data for functional-connectivity analyses.
