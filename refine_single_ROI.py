@@ -3,15 +3,12 @@
     usage:
     refine_single_ROI.py    -fData <path_to_fMRI_data >
                             (-ROImask <path_to_ROI_mask>)
-    
+                            
 """
-
-
 
 import argparse
 import logging
-import nilearn
-from nilearn import image, plotting
+from nilearn import image
 from matplotlib import pyplot as plt
 import scipy as sp
 import numpy as np 
@@ -30,6 +27,10 @@ parser.add_argument(
 parser.add_argument(
     '-sigma', type=float, help='timeseries Gaussian smoothing sigma value',
     default = 1
+    )
+parser.add_argument(
+    '-qTh', type=float, help='quantile threshold',
+    default = 0.25
     )
 parser.add_argument(
     '-verbose', help="be verbose",
@@ -70,6 +71,8 @@ logging.debug(f"N. voxels in the ROI: {len(tSeries.T)}")
 #%% GAUSSIAN FILTERING OF THE TIMESERIES
 
 logging.info("Gaussian smoothing of timeseries...")
+logging.debug(f"Using sigma = {args.sigma}")
+
 stSeries = [ sp.ndimage.gaussian_filter1d(tSeries[:,j], sigma=args.sigma)
                 for j in range(np.shape(tSeries)[1])]
 stSeries = np.asarray(stSeries).transpose()
@@ -80,7 +83,7 @@ ts_m = np.average(stSeries.T, axis=0)
 ts_s = np.std(stSeries.T, axis=0)
 SNR = np.mean(np.abs(ts_m/ts_s))
             
-fig_ts, ax_ts = plt.subplots(figsize=(7.5,2), dpi=300, tight_layout=True)
+fig_ts, ax_ts = plt.subplots(figsize=(6,2), tight_layout=True)
 ax_ts.plot(np.arange(len(ts_m))*0.735, ts_m, '-', linewidth=1, color="black")
 ax_ts.fill_between(np.arange(len(ts_m))*0.735, (ts_m-ts_s), (ts_m+ts_s), color='grey', alpha=.4)
 ax_ts.set_xlim([0,600])
@@ -90,6 +93,9 @@ ax_ts.set_title(f"avg SNR: {np.mean(np.abs(np.asarray(ts_m)/np.asarray(ts_s))):.
     
 #%% REFINING ROI
 
+logging.info("Refining ROI...")
+logging.debug("Using quantile threshold = {args.qTh}")
+
 # internal correlation matrix 
 corrMat = np.corrcoef(stSeries, rowvar=False)
 np.fill_diagonal(corrMat,0)
@@ -97,6 +103,7 @@ np.fill_diagonal(corrMat,0)
 # avg corrcoef values
 avg_corrMat = np.mean(corrMat, axis=0)
 avg_corrMat[avg_corrMat<0] = 0
+logging.debug("min/max average corr. values: {np.min(avg_corrMat:.4)}/{np.max(avg_corrMat:.4)}")
 
 # back-project to 3D corr map
 numpy_corrMap = np.zeros_like(numpy_ROImask)
@@ -110,16 +117,23 @@ for x in range(np.shape(numpy_ROImask)[0]):
 
 numpy_edge = np.logical_xor(numpy_ROImask,
                            sp.ndimage.binary_erosion(numpy_ROImask))
+threshold_value = np.quantile(avg_corrMat, args.qTh)
+numpy_threshold = np.ones_like(numpy_corrMap)*threshold_value
+numpy_cut = np.logical_and(numpy_corrMap<numpy_threshold,
+                           numpy_edge)
+numpy_ROImask_th = numpy_ROImask*np.logical_not(numpy_cut)
+
+logging.debug(f"ROI's volume (before/after): {np.sum(numpy_ROImask)}/{np.sum(numpy_ROImask_th)}")
+logging.debug(f"removed {100*(np.sum(numpy_ROImask)-np.sum(numpy_ROImask_th))/np.sum(numpy_ROImask):.3}%")
 
 for x in range(np.shape(numpy_ROImask)[0]):
     if np.any(numpy_ROImask[x,:,:]):
-        fig, ax = plt.subplots(ncols=3, nrows=1, figsize=(10,3), dpi=300, tight_layout=True)
+        fig, ax = plt.subplots(ncols=3, nrows=1, figsize=(8,2.5), tight_layout=True)
         ax[0].imshow(numpy_ROImask[x,:,:], cmap = 'Greys')
         ax[0].set_title("Original ROI mask")
-        ax[1].imshow(numpy_edge[x,:,:], cmap = 'Greys')
-        ax[1].set_title("Edges")
-        im = ax[2].imshow(numpy_corrMap[x,:,:], cmap = 'YlOrRd')
-        ax[2].set_title("Correlation map")
-        fig.colorbar(im)
-        
-        
+        ax[1].imshow(numpy_cut[x,:,:], cmap = 'Greys')
+        ax[1].set_title("Removed")
+        ax[2].imshow(numpy_ROImask_th[x,:,:], cmap = 'Greys')
+        ax[2].set_title("Final ROI")    
+
+plt.show()
