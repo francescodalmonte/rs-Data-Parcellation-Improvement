@@ -4,10 +4,10 @@ import argparse
 import logging
 from nilearn import image
 from matplotlib import pyplot as plt
-import scipy as sp
 import numpy as np 
 import time 
-from utils import load_timeseries
+from utils import extract_timeseries, plot_meanTs
+from refine import refine_roi
 
 parser = argparse.ArgumentParser(
     description='description of this parser object'
@@ -52,118 +52,59 @@ logging.getLogger('matplotlib.font_manager').disabled = True
 
 start_time = time.time()
 logging.info("---------- rs-DATA PARCELLATION IMPROVEMENT algorithm (single ROI)")
+logging.debug(f"fData path: {args.fData}")     
+logging.debug(f"ROI mask path: {args.ROImask}")
+logging.info("Loading timeseries from fData...")
 
-stSeries, n_fData, n_ROImask, _ = load_timeseries(args.fData, args.ROImask)
+fData = image.get_data(args.fData)
+ROImask = image.get_data(args.ROImask)
+
+stSeries, broken_voxels = extract_timeseries(fData, ROImask, sigma = args.sigma+2)
+logging.debug(f"N. broken voxels: {np.sum(broken_voxels)}")
 
 #%% PLOT ORIGINAL MEAN TS AND COMPUTE SNR
 
-ts_m = np.average(stSeries.T, axis=0)
-ts_s = np.std(stSeries.T, axis=0)
-SNR = np.mean(np.abs(ts_m/ts_s))
-            
-fig_ts, ax_ts = plt.subplots(figsize=(6,2), tight_layout=True)
-ax_ts.plot(np.arange(len(ts_m))*0.735, ts_m, '-', linewidth=1, color="black")
-ax_ts.fill_between(np.arange(len(ts_m))*0.735,
-                   (ts_m-ts_s), (ts_m+ts_s), color='grey', alpha=.4)
-ax_ts.set_xlim([0,600])
-ax_ts.set_ylim([-2.3,2.3])
-ax_ts.set_xlabel("Time (s)")
-ax_ts.set_title(f"avg SNR: {np.mean(np.abs(np.asarray(ts_m)/np.asarray(ts_s))):.5f}")
-    
-#%% REFINING ROI
+logging.info("Plotting timeseries and computing average SNR...")
 
+fig_ts, ax_ts = plt.subplots(figsize=(6,2), tight_layout=True)
+SNR = plot_meanTs(stSeries, ax=ax_ts, TR = 0.735,
+                  shadeColor = 'grey', linewidth=1, color='black')
+
+
+#%% REFINING ROI
 logging.info("Refining ROI...")
 logging.debug(f"Using quantile threshold = {args.qTh}")
 
-# internal correlation matrix 
-corrMat = np.corrcoef(stSeries, rowvar=False)
-np.fill_diagonal(corrMat,0)
+ROImask_t, corrMap = refine_roi(stSeries,
+                                ROImask,
+                                onlyEdges = True,
+                                quantileTh = args.qTh)
 
-# avg corrcoef values
-avg_corrMat = np.mean(corrMat, axis=0)
-avg_corrMat[avg_corrMat<0] = 0
-logging.debug(f"min/max average corr. values: {np.min(avg_corrMat):.4}/{np.max(avg_corrMat):.4}")
 
-# back-project to 3D corr map
-n_corrMap = np.zeros_like(n_ROImask)
-n=0
-for x in range(np.shape(n_ROImask)[0]):
-    for y in range(np.shape(n_ROImask)[1]):
-        for z in range(np.shape(n_ROImask)[2]):
-            if n_ROImask[x,y,z]:
-                n_corrMap[x,y,z] = avg_corrMat[n]
-                n+=1
-
-n_edge = np.logical_xor(n_ROImask,
-                           sp.ndimage.binary_erosion(n_ROImask))
-threshold_value = np.quantile(avg_corrMat, args.qTh)
-n_threshold = np.ones_like(n_corrMap)*threshold_value
-n_cut = np.logical_and(n_corrMap<n_threshold,
-                           n_edge)
-n_ROImask_th = n_ROImask*np.logical_not(n_cut)
-
-logging.debug(f"ROI's volume (before/after): {np.sum(n_ROImask)}/{np.sum(n_ROImask_th)}")
-logging.debug(f"removed {100*(np.sum(n_ROImask)-np.sum(n_ROImask_th))/np.sum(n_ROImask):.3}%")
+logging.debug(f"ROI's volume (before/after): {np.sum(ROImask)}/{np.sum(ROImask_t)}")
+logging.debug(f"removed {100*(np.sum(ROImask)-np.sum(ROImask_t))/np.sum(ROImask):.3}%")
 
 #%% PLOT NEW TIMESERIES, PLOT RESULTS
-logging.info("New timeseries extraction...")
+logging.info("New timeseries extraction and plotting...")
 
-# timeseries
-tSeries_new = n_fData[n_ROImask_th.astype(bool)]
-for i in range(len(tSeries_new)):
-    tSeries_new[i] = (tSeries_new[i]-np.mean(tSeries_new[i]))/np.std(tSeries_new[i])
-tSeries_new = tSeries_new.T
+# new timeseries
+stSeries_new, _ = extract_timeseries(fData, ROImask_t, sigma = args.sigma+2)
 
-stSeries_new = [ sp.ndimage.gaussian_filter1d(tSeries_new[:,j], sigma=args.sigma)
-                for j in range(np.shape(tSeries_new)[1])]
-stSeries_new = np.asarray(stSeries_new).transpose()
-
-ts_m_new = np.average(stSeries_new.T, axis=0)
-ts_s_new = np.std(stSeries_new.T, axis=0)
-SNR_new = np.mean(np.abs(ts_m_new/ts_s_new))
-            
+# PLOT NEW MEAN TS
 fig_ts_new, ax_ts_new = plt.subplots(figsize=(6,2), tight_layout=True)
-ax_ts_new.plot(np.arange(len(ts_m_new))*0.735, ts_m_new, '-',
-           linewidth=1, color="black")
-ax_ts_new.fill_between(np.arange(len(ts_m_new))*0.735,
-                   (ts_m_new-ts_s_new), (ts_m_new+ts_s_new), 
-                   color='grey', alpha=.4)
-ax_ts_new.set_xlim([0,600])
-ax_ts_new.set_ylim([-2.3,2.3])
-ax_ts_new.set_xlabel("Time (s)")
-ax_ts_new.set_title(f"avg SNR (NEW): {np.mean(np.abs(np.asarray(ts_m_new)/np.asarray(ts_s_new))):.5f}")
-
-# new roi
-levels = []
-for x in range(np.shape(n_ROImask)[0]):
-    if np.any(n_ROImask[x,:,:]):
-        levels.append(x)
-        
-fig_ROI, ax_ROI = plt.subplots(nrows=len(levels), ncols=3,
-                               figsize=(7,2*len(levels)), tight_layout=True)
-for l in range(len(levels)):
-    ax_ROI[l,0].imshow(n_ROImask[levels[l],:,:], cmap = 'Blues')
-    ax_ROI[l,0].set_title(f"Original ROI (lev.{levels[l]})")
-    ax_ROI[l,0].set_xticklabels([]); ax_ROI[l,0].set_yticklabels([])
-    ax_ROI[l,1].imshow(n_cut[levels[l],:,:], cmap = 'Blues')
-    ax_ROI[l,1].set_title("Removed")
-    ax_ROI[l,1].set_xticklabels([]); ax_ROI[l,1].set_yticklabels([])
-    ax_ROI[l,2].imshow(n_ROImask_th[levels[l],:,:], cmap = 'Blues')
-    ax_ROI[l,2].set_title("Final ROI")    
-    ax_ROI[l,2].set_xticklabels([]); ax_ROI[l,2].set_yticklabels([])
-
+SNR = plot_meanTs(stSeries_new, ax=ax_ts_new, TR = 0.735,
+                  shadeColor = 'grey', linewidth=1, color='black')
 
 #%% SAVE RESULTS
 logging.info("Saving results...")
 
 img_newROI = image.new_img_like(image.load_img(args.ROImask),
-                                n_ROImask_th.astype(int)) 
+                                ROImask_t.astype(int)) 
 img_newROI.to_filename(f"{args.saveTo}/newroi.nii.gz")
 
 fig_ts.savefig(f"{args.saveTo}/ts_OLD.jpg", format="jpg")
 fig_ts_new.savefig(f"{args.saveTo}/ts_NEW.jpg", format="jpg")
 
-fig_ROI.savefig(f"{args.saveTo}/roi.jpg", format="jpg")
 
 logging.info(f"---------- Total elapsed time {time.time()-start_time:.4}s ")
 
