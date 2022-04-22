@@ -4,17 +4,19 @@ import argparse
 import logging
 from nilearn import image
 from matplotlib import pyplot as plt
-import numpy as np 
+import numpy as np
 import time 
 from utils import extract_timeseries, plot_meanTs
 from refine import refine_roi
 
+
+# ssostituire con configuration file
 parser = argparse.ArgumentParser(
     description='description of this parser object'
     )
 parser.add_argument(
     '-fData', type=str, help='path to functional data',
-    default = 'F:/neurocovid/HC/18G00027/filtered_func_data_clean_toMNI.nii'
+    default = 'F:/neurocovid/HC/18G00027/filtered_func_data_clean_toMNI.nii.gz'
     )
 parser.add_argument(
     '-ROImask', type=str, help='path to ROI mask',
@@ -26,7 +28,7 @@ parser.add_argument(
     )
 parser.add_argument(
     '-sigma', type=float, help='timeseries Gaussian smoothing sigma value',
-    default = 1
+    default = None
     )
 parser.add_argument(
     '-qTh', type=float, help='quantile threshold',
@@ -59,8 +61,9 @@ logging.info("Loading timeseries from fData...")
 fData = image.get_data(args.fData)
 ROImask = image.get_data(args.ROImask)
 
-stSeries, broken_voxels = extract_timeseries(fData, ROImask, sigma = args.sigma+2)
-logging.debug(f"N. broken voxels: {np.sum(broken_voxels)}")
+logging.info("Extracting ROI timeseries...")
+stSeries, ROImask, n = extract_timeseries(fData, ROImask, sigma = args.sigma)
+logging.debug(f"% broken voxels: {n*100:.2f}")
 
 #%% PLOT ORIGINAL MEAN TS AND COMPUTE SNR
 
@@ -88,7 +91,7 @@ logging.debug(f"removed {100*(np.sum(ROImask)-np.sum(ROImask_t))/np.sum(ROImask)
 logging.info("New timeseries extraction and plotting...")
 
 # new timeseries
-stSeries_new, _ = extract_timeseries(fData, ROImask_t, sigma = args.sigma+2)
+stSeries_new, _, _ = extract_timeseries(fData, ROImask_t, sigma = args.sigma)
 
 # PLOT NEW MEAN TS
 fig_ts_new, ax_ts_new = plt.subplots(figsize=(6,2), tight_layout=True)
