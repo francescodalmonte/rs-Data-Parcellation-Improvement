@@ -28,7 +28,7 @@ parser.add_argument(
     )
 parser.add_argument(
     '-sigma', type=float, help='timeseries Gaussian smoothing sigma value',
-    default = None
+    default = 2.5
     )
 parser.add_argument(
     '-qTh', type=float, help='quantile threshold',

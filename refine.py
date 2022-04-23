@@ -68,7 +68,7 @@ def quantile_threshold(map3D, quantileTh, onlyEdges=True):
 
 
 
-def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25):
+def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25, return_mode = 'over'):
     """
         Algorithm which refines a ROI segmentation by excluding 
         least internally correlated voxels.
@@ -79,12 +79,15 @@ def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25):
         ROImask         :   ROI mask (numpy array or filepath)
         onlyEdges       :   if True the algorithm will eventually modify
                             only the voxels which compose the edges of
-                            the ROI.
+                            the ROI (default = True).
         quantileTh      :   portion of voxels to be discarded (0<quantileTh<1)
+        return_mode     :   if 'over' returns mask of over-threshold voxels,
+                            if 'under' returns under-threshold voxels (discarded),
+                            if 'both' returns a list with both of them.
         
         Returns
         ----------
-        ROImask_t       :   final ROI mask (numpy array)
+        ROImask_t       :   final ROI mask (or list of masks)
         corrMap         :   internal correlation map of the ROI (numpy array)
 
         Notes:
@@ -107,7 +110,10 @@ def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25):
     corrMap = back_project(avg_corr, ROImask)
 
     # apply quantile threshold on correlation map 
-    ROImask_t, _ = quantile_threshold(corrMap, quantileTh, onlyEdges = onlyEdges)
+    ROImask_h, ROImask_l = quantile_threshold(corrMap, quantileTh, onlyEdges = onlyEdges)
 
-    return ROImask_t, corrMap 
-
+    if return_mode=='over': return ROImask_h, corrMap 
+    elif return_mode=='under': return ROImask_l, corrMap 
+    elif return_mode=='both': return [ROImask_h,ROImask_l], corrMap
+    else: raise ValueError("invalid 'return-mode' argument: must be one of ['over','under','both']")
+    

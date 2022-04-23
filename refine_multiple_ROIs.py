@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-#
-               
+
+from matplotlib import pyplot as plt
 from nilearn import image
 import time 
 import os
 
-from utils import extract_timeseries, tsSNR
+from utils import extract_timeseries, ts_stats, plot_meanTs
 from refine import refine_roi
 
 subj = "21G12282"
@@ -20,7 +21,7 @@ start_time = time.time()
 fData = image.get_data(fData_path)
 
 SNR = []
-SNR_new = []
+SNR_t = []
 
 files = os.listdir(ROImasks_path)
 
@@ -34,10 +35,11 @@ for filename in files:
         
         # extract ROI timeseries
         print("Extracting timeseries...")
-        stSeries, _ = extract_timeseries(fData, ROImask, sigma = 2.5)
+        stSeries, ROImask, _ = extract_timeseries(fData, ROImask, sigma = 2.5)
         
         # compute SNR
-        SNR.append(tsSNR(stSeries))
+        _, _, s = ts_stats(stSeries)
+        SNR.append(s)
 
         # refine roi
         print("ROI refining...")
@@ -48,16 +50,25 @@ for filename in files:
 
         # new timeseries
         print("Extracting new timeseries...")
-        stSeries_new, _ = extract_timeseries(fData, ROImask_t, sigma = 2.5)
+        stSeries_t, ROImask_t, _ = extract_timeseries(fData, ROImask_t, sigma = 2.5)
 
     
-        SNR_new.append(tsSNR(stSeries_new))
+        # compute SNR
+        _, _, s = ts_stats(stSeries_t)
+        SNR_t.append(s)
+
+        # save results to file
         img_newROI = image.new_img_like(image.load_img(f"{ROImasks_path}/{filename}"),
                                 ROImask_t.astype(int)) 
         img_newROI.to_filename(f"{ROImasks_path}/{subj}/new_{filename}")
-
-        print(time.time()-singleStart)
         
-
+        fig, ax = plt.subplots(figsize=(6,2), dpi=300, tight_layout=True)
+        plot_meanTs(stSeries_t, ax=ax, TR = 0.735, shadeColor = 'grey',
+                    linewidth=1, color='black')
+        ax.set_ylim([-2.5,-2.5])
+        fig.savefig(f"{ROImasks_path}/{subj}/{filename[:6]}_ts.jpg", format="jpg")
+        
+        print(f"{(time.time()-singleStart):.4}s")
+        
 print(f"Total elapsed time {time.time()-start_time:.4}s ")
 

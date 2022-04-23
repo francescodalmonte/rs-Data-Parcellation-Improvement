@@ -73,7 +73,7 @@ def remove_broken_voxels(tSeries, ROImask, threshold = 1e-6):
 
 
 
-def extract_timeseries(fData, ROImask, sigma = None):
+def extract_timeseries(fData, ROImask, sigma = None, standardize = True):
     """
         Load timeseries from EPI
         
@@ -102,9 +102,10 @@ def extract_timeseries(fData, ROImask, sigma = None):
     tSeries = fData[ROImask.astype(bool)].T
         
     tSeries_c, ROImask_c, n = remove_broken_voxels(tSeries, ROImask)
-        
-    tSeries_c -= np.average(tSeries_c, axis=0)
-    tSeries_c /= np.std(tSeries_c, axis=0)
+    
+    if standardize:
+        tSeries_c -= np.average(tSeries_c, axis=0)
+        tSeries_c /= np.std(tSeries_c, axis=0)
 
     if sigma is not None:
         stSeries_c = [ sp.ndimage.gaussian_filter1d(tSeries_c[:,j], sigma=sigma)
@@ -168,7 +169,9 @@ def plot_meanTs(tSeries, ax=None, TR = 1, shadeColor = 'white', **plt_kwargs):
     ax.plot(np.arange(len(ts_m))*TR, ts_m, '-', **plt_kwargs)
     ax.fill_between(np.arange(len(ts_m))*TR,
                    (ts_m-ts_s), (ts_m+ts_s), color=shadeColor, alpha=.4)
-    ax.set_ylim([-2.5,2.5])
+    center = np.mean(ts_m)
+    width = np.std(ts_m)
+    ax.set_ylim([center-2.5*width,center+2.5*width])
     ax.set_xlabel("Time (s)")
     ax.set_title(f"avg SNR: {SNR:.5f}")
     return SNR
