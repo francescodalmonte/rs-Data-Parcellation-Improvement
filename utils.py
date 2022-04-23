@@ -92,11 +92,14 @@ def extract_timeseries(fData, ROImask, sigma = None, standardize = True):
         n               :   fraction of broken voxels
         
     """
+    
     if not isinstance(fData, np.ndarray):
         if os.path.isfile(fData):
+            logging.debug(f"extracting_timeseries: argument fData is path: getting data from {fData}")
             fData = image.get_data(fData)
     if not isinstance(ROImask, np.ndarray):   
         if os.path.isfile(ROImask):  
+            logging.debug(f"extracting_timeseries: argument ROImask is path: getting data from {ROImask}")
             ROImask = image.get_data(ROImask)
             
     tSeries = fData[ROImask.astype(bool)].T
@@ -104,10 +107,12 @@ def extract_timeseries(fData, ROImask, sigma = None, standardize = True):
     tSeries_c, ROImask_c, n = remove_broken_voxels(tSeries, ROImask)
     
     if standardize:
+        logging.debug("extracting_timeseries: standardizing ts")
         tSeries_c -= np.average(tSeries_c, axis=0)
         tSeries_c /= np.std(tSeries_c, axis=0)
 
     if sigma is not None:
+        logging.debug("extracting_timeseries: smoothing ts")
         stSeries_c = [ sp.ndimage.gaussian_filter1d(tSeries_c[:,j], sigma=sigma)
                    for j in range(np.shape(tSeries_c)[1])]
         stSeries_c = np.asarray(stSeries_c).transpose()
@@ -162,6 +167,7 @@ def plot_meanTs(tSeries, ax=None, TR = 1, shadeColor = 'white', **plt_kwargs):
     """
     
     if ax is None:
+        logging.debug("plot_meanTs: creating new axes")
         ax = plt.gca()
 
     ts_m, ts_s, SNR = ts_stats(tSeries)

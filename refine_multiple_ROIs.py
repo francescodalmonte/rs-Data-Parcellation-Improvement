@@ -17,6 +17,7 @@ if not os.path.isdir(f"{ROImasks_path}/{subj}"):
 #%%
 start_time = time.time()
 
+print("Loading data from EPI...")
 # load data from EPI
 fData = image.get_data(fData_path)
 
@@ -29,12 +30,12 @@ for filename in files:
     if filename[:4] == 'roi_':
         singleStart = time.time()
 
-        print(filename)
+        print('\033[1;34m',filename,'\033[0;0m')
         
         ROImask = image.get_data(f"{ROImasks_path}/{filename}")
         
         # extract ROI timeseries
-        print("Extracting timeseries...")
+        print("1. Extracting timeseries...")
         stSeries, ROImask, _ = extract_timeseries(fData, ROImask, sigma = 2.5)
         
         # compute SNR
@@ -42,14 +43,14 @@ for filename in files:
         SNR.append(s)
 
         # refine roi
-        print("ROI refining...")
+        print("2. ROI refining...")
         ROImask_t, corrMap = refine_roi(stSeries,
                                         ROImask,
                                         onlyEdges = True,
                                         quantileTh = 0.50)
 
         # new timeseries
-        print("Extracting new timeseries...")
+        print("3. Extracting new timeseries...")
         stSeries_t, ROImask_t, _ = extract_timeseries(fData, ROImask_t, sigma = 2.5)
 
     
@@ -65,10 +66,10 @@ for filename in files:
         fig, ax = plt.subplots(figsize=(6,2), dpi=300, tight_layout=True)
         plot_meanTs(stSeries_t, ax=ax, TR = 0.735, shadeColor = 'grey',
                     linewidth=1, color='black')
-        ax.set_ylim([-2.5,-2.5])
+        ax.set_ylim([-2.5,2.5])
         fig.savefig(f"{ROImasks_path}/{subj}/{filename[:6]}_ts.jpg", format="jpg")
         
-        print(f"{(time.time()-singleStart):.4}s")
+        print(f"Elapsed {(time.time()-singleStart):.4}s")
         
 print(f"Total elapsed time {time.time()-start_time:.4}s ")
 
