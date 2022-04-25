@@ -2,6 +2,7 @@
 
 import os
 import logging
+
 import numpy as np
 import scipy as sp
 from matplotlib import pyplot as plt
@@ -61,6 +62,7 @@ def remove_broken_voxels(tSeries, ROImask, threshold = 1e-6):
     # broken voxels have timeseries == 0 for the whole rs length
     broken_voxels = np.all(tSeries<threshold, axis=0).astype(int)
     if np.sum(broken_voxels)==0:
+        logging.debug(f"no broken voxels")
         return tSeries.copy(), ROImask, 0
     else:
         # remove voxels from ROImask
@@ -69,6 +71,7 @@ def remove_broken_voxels(tSeries, ROImask, threshold = 1e-6):
         tSeries_clean = tSeries[:,np.logical_not(broken_voxels)].copy()
         # fraction of broken voxels
         n = (len(tSeries.T)-len(tSeries_clean.T))/len(tSeries.T)
+        logging.debug(f"% broken voxels: {n*100:.2f}")
         return tSeries_clean, ROImask_clean, n
 
 
@@ -181,9 +184,5 @@ def plot_meanTs(tSeries, ax=None, TR = 1, shadeColor = 'white', **plt_kwargs):
     ax.set_xlabel("Time (s)")
     ax.set_title(f"avg SNR: {SNR:.5f}")
     return SNR
-
-
-
-
 
 

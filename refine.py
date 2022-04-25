@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
+import os
+import logging
+
 from utils import back_project
 from nilearn import image
 import numpy as np
 import scipy as sp
-import os
+
 
 
 
@@ -110,8 +113,12 @@ def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25, return_mod
     corrMap = back_project(avg_corr, ROImask)
 
     # apply quantile threshold on correlation map 
+    logging.debug(f"Applying quantile threshold = {quantileTh} (modality '{return_mode}')")
+    
     ROImask_h, ROImask_l = quantile_threshold(corrMap, quantileTh, onlyEdges = onlyEdges)
 
+    logging.debug(f"ROI's volume (before/after): {np.sum(ROImask)}/{np.sum(ROImask_h)}")
+    logging.debug(f"removed {100*(np.sum(ROImask_l))/np.sum(ROImask):.3}% volume")
     if return_mode=='over': return ROImask_h, corrMap 
     elif return_mode=='under': return ROImask_l, corrMap 
     elif return_mode=='both': return [ROImask_h,ROImask_l], corrMap
