@@ -18,11 +18,11 @@ from refine import refine_roi
 
 def setup_args():
     parser = argparse.ArgumentParser(
-        description='description of this parser object:'
+        description='Refine an existing segmentation of functionally connected brain regions'
         )
     parser.add_argument(
         '-m','--multiROI', help="run in multiROI mode",
-        action="store_const", dest="multiROI", const=True
+        action="store_true"
         )
     parser.add_argument(
         '-v','--verbose', help="be verbose (INFO level)",
@@ -33,6 +33,10 @@ def setup_args():
         action="store_const", dest="loglevel", const=logging.DEBUG,
         )
     parser.add_argument(
+        '-p', '--savePlots', help="save .jpeg plots to file",
+        action = 'store_true'
+        )
+    parser.add_argument(
         '-c', '--config', type=str, help="configuration file path (default value: 'config.INI')",
         default = 'config.INI'
         )
@@ -40,6 +44,7 @@ def setup_args():
         '-l', '--logfile', type=str, help="log file path (default value: None)",
         default = None
         )
+
     args = parser.parse_args()
     config = configparser.ConfigParser()
     if os.path.isfile(args.config):
@@ -85,11 +90,12 @@ def main_singleMode(args, config):
     stSeries, ROImask, n = extract_timeseries(fData, ROImask,
                                               sigma = float(config['sigma'])
                                               )
-
-    # PLOT ORIGINAL MEAN TS AND COMPUTE SNR
-    fig_ts, ax_ts = plt.subplots(figsize=(6,2), tight_layout=True)
-    SNR = plot_meanTs(stSeries, ax=ax_ts, TR = 0.735,
-                      shadeColor = 'grey', linewidth=1, color='black')
+    
+    if args.savePlots:
+        # PLOT ORIGINAL MEAN TS AND COMPUTE SNR
+        fig_ts, ax_ts = plt.subplots(figsize=(6,2), tight_layout=True)
+        _ = plot_meanTs(stSeries, ax=ax_ts, TR = 0.735,
+                        shadeColor = 'grey', linewidth=1, color='black')
 
 
     # REFINE ROI
@@ -100,15 +106,15 @@ def main_singleMode(args, config):
                                     quantileTh = float(config['qTh']),
                                     return_mode = 'over')
     
-
-    # PLOT NEW TIMESERIES
-    logging.info("Extracting new ROI timeseries and plotting...")
-    stSeries_new, _, _ = extract_timeseries(fData, ROImask_t,
+    if args.savePlots:
+        # PLOT NEW TIMESERIES
+        logging.info("Extracting new ROI timeseries and plotting...")
+        stSeries_new, _, _ = extract_timeseries(fData, ROImask_t,
                                             sigma = float(config['sigma'])
                                             )
-    fig_ts_new, ax_ts_new = plt.subplots(figsize=(6,2), tight_layout=True)
-    SNR = plot_meanTs(stSeries_new, ax=ax_ts_new, TR = 0.735,
-                      shadeColor = 'grey', linewidth=1, color='black')
+        fig_ts_new, ax_ts_new = plt.subplots(figsize=(6,2), tight_layout=True)
+        _ = plot_meanTs(stSeries_new, ax=ax_ts_new, TR = 0.735,
+                    shadeColor = 'grey', linewidth=1, color='black')
     
 
     # SAVE RESULTS
@@ -118,8 +124,9 @@ def main_singleMode(args, config):
     img_newROI = image.new_img_like(image.load_img(config['ROI_path']),
                                     ROImask_t.astype(int)) 
     img_newROI.to_filename(f"{config['newROI_dirpath']}/newroi.nii.gz")
-    fig_ts.savefig(f"{config['results_dirpath']}/ts_OLD.jpg", format="jpg")
-    fig_ts_new.savefig(f"{config['results_dirpath']}/ts_NEW.jpg", format="jpg")
+    if args.savePlots:
+        fig_ts.savefig(f"{config['results_dirpath']}/ts_OLD.jpg", format="jpg")
+        fig_ts_new.savefig(f"{config['results_dirpath']}/ts_NEW.jpg", format="jpg")
     
     logging.info(f"Finished!\nTotal elapsed time: {time.time()-start_time:.4}s ")
 
@@ -141,8 +148,6 @@ def main_multiMode(args, config):
     logging.info("Loading data from EPI...")
     fData = image.get_data(config['fData_path'])
 
-    SNR = []
-    SNR_t = []
 
     files = os.listdir(config['ROI_dirpath'])
     for filename in files:
@@ -157,10 +162,6 @@ def main_multiMode(args, config):
                                                       sigma = float(config['sigma'])
                                                       )
                                                       
-            # COMPUTE SNR
-            _, _, s = ts_stats(stSeries)
-            SNR.append(s)
-
             # REFINE ROI
             logging.info(f"{filename} : ROI refining...")
             ROImask_t, corrMap = refine_roi(stSeries,
@@ -168,27 +169,31 @@ def main_multiMode(args, config):
                                             onlyEdges = True,
                                             quantileTh = float(config['qTh'])
                                             )
-
-            # EXTRACT NEW TIMESERIES
-            logging.info(f"{filename} : Extracting new timeseries...")
-            stSeries_t, ROImask_t, _ = extract_timeseries(fData, ROImask_t,
+            
+            if args.savePlots:
+                # EXTRACT NEW TIMESERIES
+                logging.info(f"{filename} : Extracting new timeseries...")
+                stSeries_t, ROImask_t, _ = extract_timeseries(fData, ROImask_t,
                                                           sigma = float(config['sigma'])
                                                           )
 
-            # COMPUTE SNR
-            _, _, s = ts_stats(stSeries_t)
-            SNR_t.append(s)
-
-            # save results to file
+            # SAVE RESULTS
             img_newROI = image.new_img_like(image.load_img(f"{config['ROI_dirpath']}/{filename}"),
                                     ROImask_t.astype(int)) 
             img_newROI.to_filename(f"{config['newROI_dirpath']}/new_{filename}")
-            
-            fig, ax = plt.subplots(figsize=(6,2), dpi=300, tight_layout=True)
-            plot_meanTs(stSeries_t, ax=ax, TR = 0.735, shadeColor = 'grey',
+
+            if args.savePlots:
+                fig, ax = plt.subplots(figsize=(6,2), dpi=300, tight_layout=True)
+                plot_meanTs(stSeries, ax=ax, TR = 0.735, shadeColor = 'grey',
                         linewidth=1, color='black')
-            ax.set_ylim([-2.5,2.5])
-            fig.savefig(f"{config['results_dirpath']}/{filename[:-7]}_ts.jpg", format="jpg")
+                ax.set_ylim([-2.5,2.5])
+                fig.savefig(f"{config['results_dirpath']}/{filename[:-7]}_ts.jpg", format="jpg")
+
+                fig, ax = plt.subplots(figsize=(6,2), dpi=300, tight_layout=True)
+                plot_meanTs(stSeries_t, ax=ax, TR = 0.735, shadeColor = 'grey',
+                        linewidth=1, color='black')
+                ax.set_ylim([-2.5,2.5])
+                fig.savefig(f"{config['results_dirpath']}/{filename[:-7]}_newts.jpg", format="jpg")
             
             logging.info(f"{filename} : Elapsed {(time.time()-singleStart):.4}s")
             
