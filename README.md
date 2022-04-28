@@ -2,10 +2,10 @@
 
 rsDPI is a Python implementation of an algorithm to automatically refine an existing parcellation of rs-fMRI data for functional-connectivity analyses.
 
-*[Overview](#overview)
-*[Requirements](#requirements)
-*[Usage](#usage)
-*[Author](#author)
+* [Overview](#overview)
+* [Requirements](#requirements)
+* [Usage](#usage)
+* [Author](#author)
 
 ## Overview
 
