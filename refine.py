@@ -3,7 +3,7 @@
 import os
 import logging
 
-from utils import back_project
+from utils import *
 from nilearn import image
 import numpy as np
 import scipy as sp
@@ -18,15 +18,27 @@ def average_correlation(tSeries):
         
         Parameters
         ----------
-        tSereies    :   voxels timeseries
+        tSeries    :   TxN voxels' timeseries
         
         Returns
         ----------
         avg_corr    :   1D array of avg correlation values
-    """
         
+        NOTE:   make sure you run remove_broken_voxels on tSeries
+                before this function in order to remove broken
+                signals.
+    """
+    if np.size(tSeries)==0 or len(np.shape(tSeries))==1 or np.any(np.asarray(np.shape(tSeries))==1):
+        raise ValueError("invalid shape for argument tSeries")
     # internal correlation matrix   
     corrMat = np.corrcoef(tSeries, rowvar=False)
+    if not np.all(corrMat==corrMat):
+        tSeries, _ = remove_broken_voxels(tSeries)
+        if np.size(tSeries)==0 or len(np.shape(tSeries))==1 or np.any(np.asarray(np.shape(tSeries))==1):
+            raise ValueError("after removing broken signals, invalid shape for argument tSeries")            
+        else: 
+            corrMat = np.corrcoef(tSeries, rowvar=False)
+        
     np.fill_diagonal(corrMat,0)
     # avg corrcoef values
     avg_corr = np.mean(corrMat, axis=0)

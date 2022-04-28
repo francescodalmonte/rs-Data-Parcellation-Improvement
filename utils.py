@@ -75,14 +75,14 @@ def remove_broken_voxels(tSeries, ROImask=None, threshold = 1e-6):
         raise ValueError("input tSeries has <=1 timepoints!")        
     
     
-    # voxels with timeseries == 0 for the whole rs length
-    broken_1 = np.all(np.abs(tSeries)<threshold, axis=0).astype(int)
+    # voxels with const timeseries for the whole rs length
+    broken_1 = np.all(np.abs(tSeries-np.mean(tSeries, axis=0))<threshold, axis=0).astype(int)
     # voxels with NaN values
     broken_2 = np.any(tSeries!=tSeries, axis=0).astype(int)
+    
     # broken voxels
     broken_voxels = np.logical_or(broken_1, broken_2)
     
-
     if not np.any(broken_voxels):
         logging.debug(f"no broken voxels")
         if ROImask is None:

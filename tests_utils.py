@@ -36,15 +36,16 @@ def _rand_mask(N=100, mshape=[10,10,10]):
     return mask
 
 # strategy for 2D lists (fake timeseries set)
-dim1 = st.integers(min_value=2, max_value=20)
+dim1 = st.integers(2, 20)
 list2D = dim1.flatmap(
                 lambda n: st.lists(
                             st.lists(
-                                st.floats(min_value=-1e8, max_value=1e8),
+                                st.floats(-1e8, 1e8),
                                 min_size=n, max_size=n
                                 )
                             )
                 )
+
 
 
         
@@ -59,8 +60,8 @@ def test_back_projection_empty_mask():
     map3D = back_project(array,mask)
     assert np.all(map3D==0)
     
-@given(i1 = st.integers(min_value=0, max_value=1000),
-       i2 = st.integers(min_value=0, max_value=1000))
+@given(i1 = st.integers(0, 1000),
+       i2 = st.integers(0, 1000))
 def test_back_projection_different_sizes(i1,i2):
     """given array and mask with incompatible sizes, veritfy
     that back_projection raises ValueError"""
@@ -88,9 +89,17 @@ def test_back_projection_PROPERTY_INVERSE(array):
 
     assert np.all(array_i == array)
 
-
-
 # REMOVE_BROKEN_VOXELS()
+
+def test_remove_broken_voxels_empty_ts():
+    """given an empty or invalid argument, verify that 
+    broken_voxels raises the correct errors"""
+    with pytest.raises(ValueError):
+        remove_broken_voxels([])
+    with pytest.raises(ValueError):
+        remove_broken_voxels([[],[],[]])
+    with pytest.raises(ValueError):
+        remove_broken_voxels([[1],[2],[3]])
 
 def test_remove_broken_voxels_empty_ts():
     """given an empty or invalid argument, verify that 
@@ -103,27 +112,39 @@ def test_remove_broken_voxels_empty_ts():
         remove_broken_voxels([[1],[2],[3]])
      
 @given(list2D = list2D.filter(lambda t: len(t)>1),
-       th = st.floats(min_value=0, max_value=100))
+       th = st.floats(min_value=1e-18, max_value=1e-2))
 def test_remove_broken_voxels_PROPERTY_CONSERVATION(list2D, th):
-    """given a random 2D array, verify that the sum of the elements
-    in the original array (excluding columns with nan values) is "equal"
-    (considering the threshold value) to the sum of the cleaned.
+    """given a random 2D array, verify that the sum of the discrete
+    derivatives in the original array (derivatives computed along axis
+    1, i.e. "time" axis) is equal to the sum of the derivatives in the
+    cleaned array.
+    This test proves that remove_broken_voxels only acts on signals
+    (i.e. columns) with null time derivative (constant).
     NOTE:   sums are performed in two step: [np.sum(np.sum())] in both 
             cases [list2D, list2D_r] to make them numerically comparable"""
     
     list2D = np.asarray(list2D)
     list2D_r, n = remove_broken_voxels(list2D, threshold = th)
-    sum_1 = np.nansum(np.sum(list2D, axis=0))
-    sum_2 = np.sum(np.sum(list2D_r, axis=0))
+    
+    z = np.zeros([1,list2D.shape[1]])
+    list2D_pad1 = np.r_[list2D, z]
+    list2D_pad2 = np.r_[z, list2D]
+    z_r = np.zeros([1,list2D_r.shape[1]])
+    list2D_r_pad1 = np.r_[list2D_r, z_r]
+    list2D_r_pad2 = np.r_[z_r, list2D_r]
+    
+    der = np.abs(list2D_pad1 - list2D_pad2)[1:-1]
+    der_r = np.abs(list2D_r_pad1 - list2D_r_pad2)[1:-1]
+    
+    sum_1 = np.nansum(np.sum(der, axis=0))
+    sum_2 = np.sum(np.sum(der_r, axis=0))
     diff = np.abs(sum_1-sum_2)
     
     assert diff <= th*np.size(list2D)*n
 
-
-
 # EXTRACT_TIMESERIES()
 
-@given(b = st.booleans(), i = st.integers(min_value=0, max_value=10))
+@given(b = st.booleans(), i = st.integers(0, 0))
 def test_extract_timeseries_zero_fData(b,i):
     """given null fData (==0 everywhere), verify that extract_ts
     returns an empty timeseries set and remove 100% of the voxels"""
@@ -133,7 +154,7 @@ def test_extract_timeseries_zero_fData(b,i):
                                   standardize=b, sigma=i)
     assert np.size(ts)==0 and np.sum(mask)==0 and n==1
     
-@given(b = st.booleans(), i = st.integers(min_value=0, max_value=10))
+@given(b = st.booleans(), i = st.integers(0, 10))
 def test_extract_timeseries_finalTS_number(b,i):
     """given random fData, verify that extract_ts returns a set of
     timeseries with equal or fewer samples with respect to the initial
@@ -147,11 +168,11 @@ def test_extract_timeseries_finalTS_number(b,i):
     if n>0:
         assert len(ts.T)<np.sum(ROImask) and np.sum(mask)<np.sum(ROImask)
 
-
-
 # TS_STATS()
 
 def test_ts_stats_empty_ts():
+    """given invalid arguments, verify that ts_stats returns
+    expected errors"""
     ts_1 = []
     with pytest.raises(ValueError):
         ts_stats(ts_1)
@@ -164,7 +185,10 @@ def test_ts_stats_empty_ts():
 
 
 @given(list2D = list2D.filter(lambda t: len(t)>1))
-def test_ts_stats(list2D):
+def test_ts_stats_tsm_bounds(list2D):
+    """"given a random timeseries set, verify that ts_stats
+    result ts_m maximum (and min) value is <= (>=) than max (min)
+    value of original array"""
     ts_m, ts_s, SNR = ts_stats(list2D)
     assert np.max(ts_m)<=np.max(list2D)
     assert np.min(ts_m)>=np.min(list2D)    
