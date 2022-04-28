@@ -2,6 +2,7 @@
 
 import os
 import logging
+import warnings
 
 from utils import *
 from nilearn import image
@@ -31,7 +32,9 @@ def average_correlation(tSeries):
     if np.size(tSeries)==0 or len(np.shape(tSeries))==1 or np.any(np.asarray(np.shape(tSeries))==1):
         raise ValueError("invalid shape for argument tSeries")
     # internal correlation matrix   
-    corrMat = np.corrcoef(tSeries, rowvar=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        corrMat = np.corrcoef(tSeries, rowvar=False)
     if not np.all(corrMat==corrMat):
         tSeries, _ = remove_broken_voxels(tSeries)
         if np.size(tSeries)==0 or len(np.shape(tSeries))==1 or np.any(np.asarray(np.shape(tSeries))==1):
@@ -65,20 +68,22 @@ def quantile_threshold(map3D, quantileTh, onlyEdges=True):
         mask_low    :   binary mask of under-threshold values
     """
     
-    threshold_value = np.quantile(np.unique(map3D[map3D>0]), quantileTh)
+    threshold_value = np.quantile(map3D[map3D==map3D], quantileTh)
+    if threshold_value == 0:
+        warnings.warn("Using a threshold value = 0; consider increasing quantileTh value") 
     threshold = np.ones_like(map3D)*threshold_value
     
-    mask = (map3D!=0).astype(int)
+    mask = (map3D==map3D).astype(int)
     
     if onlyEdges:
         edges = np.logical_xor(mask, sp.ndimage.binary_erosion(mask))
         mask_low = np.logical_and(map3D<threshold, edges)
     else: 
         mask_low = map3D<threshold
-        
+
     mask_high = mask*np.logical_not(mask_low)
     
-    return mask_high, mask_low
+    return mask_high, mask_low.astype(int)
 
 
 

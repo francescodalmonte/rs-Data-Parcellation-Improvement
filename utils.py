@@ -33,7 +33,7 @@ def back_project(array1D, ROImask):
     
     if np.sum(ROImask)!=len(array1D):
         raise ValueError("x length must match ROI size")
-    map3D = np.zeros_like(ROImask)
+    map3D = np.zeros_like(ROImask).astype(float)
     n=0
     for x in range(np.shape(ROImask)[0]):
         for y in range(np.shape(ROImask)[1]):
@@ -41,6 +41,8 @@ def back_project(array1D, ROImask):
                 if ROImask[x,y,z]:
                     map3D[x,y,z] = array1D[n]
                     n+=1
+                else: 
+                    map3D[x,y,z] = np.nan
     return map3D
 
 
@@ -65,13 +67,12 @@ def remove_broken_voxels(tSeries, ROImask=None, threshold = 1e-6):
     tSeries = np.asarray(tSeries)
     if np.size(tSeries.T)==0: 
         raise ValueError("input tSeries is empty!")
-        
     try: 
-        np.shape(tSeries)[1]
+        np.shape(tSeries)[0]
     except: 
         raise ValueError("invalid tSeries argument ")
         
-    if np.shape(tSeries)[1]<=1:
+    if np.shape(tSeries)[0]<=1:
         raise ValueError("input tSeries has <=1 timepoints!")        
     
     
