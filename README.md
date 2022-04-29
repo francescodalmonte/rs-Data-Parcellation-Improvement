@@ -6,7 +6,7 @@ After cloning this reposiroty rsDPI can be run as a command line application wit
 
 
 
-![Alt text](img/image.jpg?raw=true "Refining a ROI improves SNR")
+![Alt text](img/image.JPG?raw=true "Refining a ROI improves SNR")
 
 
 
