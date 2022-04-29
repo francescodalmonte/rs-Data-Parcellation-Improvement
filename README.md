@@ -1,4 +1,4 @@
-# rsDPI - rs-Data Parcellation Improvement algorithm
+# rsDPI: rs-Data Parcellation Improvement algorithm
 
 rsDPI is a Python implementation of an algorithm to automatically refine an existing parcellation of rs-fMRI data for functional-connectivity analyses.
 
@@ -6,7 +6,7 @@ After cloning this reposiroty rsDPI can be run as a command line application wit
 
 * [Overview](#overview)
 * [Requirements](#requirements)
-* [Usage](#usage)
+* [Basic usage](#usage)
 * [Author](#author)
 
 ## Overview
@@ -33,7 +33,7 @@ Minimal required Python libraries are:
 - `Matplotlib`
 - `Nilearn`
 
-## Usage 
+## Basic usage 
 
 To run the algorithm on your machine clone this repository with:
 ```
