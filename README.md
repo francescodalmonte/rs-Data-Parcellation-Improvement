@@ -4,6 +4,12 @@ rsDPI is a Python implementation of an algorithm to automatically refine an exis
 
 After cloning this reposiroty rsDPI can be run as a command line application without any installation needed.
 
+
+
+![Alt text](images/image.jpg?raw=true "Refining a ROI improves SNR")
+
+
+
 * [Overview](#overview)
 * [Requirements](#requirements)
 * [Basic usage](#usage)
@@ -62,3 +68,16 @@ Depending on the modality you will use, you may only configure one of the two se
 `fData_path` should be the absolute path to a *.nii.gz EPI image (from a rs-fMRI experiment). `ROI_path`/`ROI_dirpath` are absolute paths to the original ROI/the original directory containing the set of ROIs you want to refine. `newROI_dirpath`/`results_dirpath` are absolute paths to results directories (can be equal)
 Finally `sigma` and `qTh` are parameters to be passed to the algorithm; respectively they represent the amplitude of the smoothing we want to apply on the original timeseries (pre-processing step), and can be set to `0` if you want no smoothing, and the *quantile threshold* value for the refinement (i.e. an upper bound for the fraction of voxels to be discarded from each ROI).
 
+Algorithm can be launched with the following command in singleROI mode (in this case using `verbose` flag)
+```
+python rsDPI.py -v
+```
+or in multiROI mode
+```
+python rsDPI.py -m -v
+```
+
+## Author
+
+Francesco Dalmonte
+MSc student at University of Bologna
