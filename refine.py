@@ -222,9 +222,6 @@ def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25, return_mod
         with the others, than back_project those values into the original
         3D mask, and finally perform a threshold on this mask.
         
-        For examples of usage see online documentation:
-        "https://github.com/francesco28597/rs-Data-Parcellation-Improvement"
-        
         
         See Also
         -----------
