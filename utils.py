@@ -23,17 +23,55 @@ def back_project(array1D, ROImask):
         ----------
         map3D       : 3D re-mapping of x
         
-        Notes:
-        This function is used in refine_roi algorithm to re-map 
-        a 1D array of average correlation values of the voxels
-        of a ROI onto the 3D original space.
+        
+        Notes
+        ----------
+        This function assign values of array1D to non-zero positions
+        of ROImask, following incresing order of indexes. 
+        It is used in refine_roi() function to re-map a 1D
+        array of average correlation values of the voxels of a
+        ROI (computed with average_correlation() )onto the 3D
+        original space.
+        
+        
+        Examples
+        ----------
+        >>> import numpy as np
+        >>> from utils import back_project
+        >>> x = np.array([2,3,1,5,7])
+        >>> m = m = np.array([[[0,0,0],[0,0,0],[1,0,0]],
+                              [[0,1,1],[0,0,0],[1,0,0]],
+                              [[0,0,0],[0,1,0],[0,0,0]]])
+        >>> back_project(x,m)
+        [Out]
+        array([[[nan, nan, nan],
+                [nan, nan, nan],
+                [ 2., nan, nan]],
+
+               [[nan,  3.,  1.],
+                [nan, nan, nan],
+                [ 5., nan, nan]],
+
+               [[nan, nan, nan],
+                [nan,  7., nan],
+                [nan, nan, nan]]])
+        
+        See Also
+        ----------
+        refine_roi()
+        average_correlation()
+        
     """
     array1D = np.asarray(array1D)
     ROImask = np.asarray(ROImask)
     
+    if not ((ROImask==0) | (ROImask==1)).all():
+        raise ValueError("ROImask must be a binary mask (must contain only 0/1)")
+    
     if np.sum(ROImask)!=len(array1D):
         raise ValueError("x length must match ROI size")
     map3D = np.zeros_like(ROImask).astype(float)
+    
     n=0
     for x in range(np.shape(ROImask)[0]):
         for y in range(np.shape(ROImask)[1]):
@@ -44,6 +82,26 @@ def back_project(array1D, ROImask):
                 else: 
                     map3D[x,y,z] = np.nan
     return map3D
+
+
+
+def _check_tSeries_arg(tSeries):
+    """
+        check size and shape of a timeseries set as argument
+        
+    """
+    tSeries = np.asarray(tSeries)
+    if np.size(tSeries.T)==0: 
+        raise ValueError("input tSeries is empty!")
+        
+    try: 
+        np.shape(tSeries)[0]
+    except: 
+        raise ValueError("invalid tSeries argument ")
+        
+    if np.shape(tSeries)[0]<=1:
+        raise ValueError("input tSeries has <=1 timepoints!")   
+
 
 
 def remove_broken_voxels(tSeries, ROImask=None, threshold = 1e-6):
@@ -63,18 +121,55 @@ def remove_broken_voxels(tSeries, ROImask=None, threshold = 1e-6):
         tSeries_clean   :   cleaned timeseries set
         ROImask_clean   :   cleaned mask (optional)
         n               :   fraction of removed samples
-    """
-    tSeries = np.asarray(tSeries)
-    if np.size(tSeries.T)==0: 
-        raise ValueError("input tSeries is empty!")
-    try: 
-        np.shape(tSeries)[0]
-    except: 
-        raise ValueError("invalid tSeries argument ")
         
-    if np.shape(tSeries)[0]<=1:
-        raise ValueError("input tSeries has <=1 timepoints!")        
+        
+        Notes
+        ----------
+        Timeseries are considered "broken" when signal is constant 
+        for its whole length (threshold value serves as margin of 
+        approximation). 
+        The function, for each single timeseries, computes its mean
+        value and check if absolute displacement from such value 
+        is always < threshold: if True, the timeseries is considered
+        as broken.
+        Timeseries are also considered broken if they contain any 
+        NaN values.
+        If ROImask is provided, the function also remove voxels
+        corresponding to broken timeseries from it (exploiting 
+        back_project())
+        
+        See Also
+        ----------
+        back_project()
+        
+        Examples
+        ----------
+        >>> import numpy as np
+        >>> from utils import remove_broken_voxels
+        >>> ts = np.array([[0.,1.,2.,1.],
+                           [1.,1.,3.,2.],
+                           [2.,1.,3.,np.nan],
+                           [3.,1.,2.,3.],
+                           [2.,1.,2.,4.],
+                           [3.,1.,2.,4.]])
+        >>> new_ts, n = remove_broken_voxels(ts)
+        >>> new_ts
+        [Out]
+        array([[0., 2.],
+               [1., 3.],
+               [2., 3.],
+               [3., 2.],
+               [2., 2.],
+               [3., 2.]])
+        >>> n
+        [Out]
+        0.5
+        
+    """
+
+    _check_tSeries_arg(tSeries)
     
+    tSeries = np.asarray(tSeries)
     
     # voxels with const timeseries for the whole rs length
     broken_1 = np.all(np.abs(tSeries-np.mean(tSeries, axis=0))<threshold, axis=0).astype(int)
@@ -105,17 +200,38 @@ def remove_broken_voxels(tSeries, ROImask=None, threshold = 1e-6):
 
 
 
+def _if_notArray_getFromFile(x):
+    """
+        if argument x is array returns x, otherwise check whether
+        x is a path to an image and eventually load it as array.
+    """
+    if not isinstance(x, np.ndarray):
+        if isinstance(x, str):
+            if os.path.isfile(x):
+                logging.debug(f"extracting_timeseries: argument x is path: getting data from {x}")
+                x = image.get_data(x)
+        else:
+            raise TypeError(f"invalid type for argument x")
+    return x
+
+
+
 def extract_timeseries(fData, ROImask, sigma = None, standardize = True):
     """
-        Load timeseries from EPI
+        Load timeseries from EPI (filepath or object) using a mask
         
         Parameters
         ----------
-        fData       :   path to EPI data or timeseries set
-        ROImask     :   path to ROI mask file or ROI mask numpy array
-        sigma       :   sigma for ts Gaussian smoothing 
-                            (default=None, i.e. no smoothing)
-        
+        fData       :   (str or array-like object)
+                        path to EPI data or 4D timeseries set
+        ROImask     :   (str or array-like object)
+                        path to ROI mask file or mask binary array
+        sigma       :   (float)   
+                        Gaussian sigma for timeseries smoothing 
+                        (default=None, i.e. no smoothing)
+        standardize :   (bool)
+                        whether to standardize extracted signals 
+
         Returns
         ---------
         stSeries_c      :   TxN cleaned/smoothed ROI's timeseries set
@@ -124,17 +240,32 @@ def extract_timeseries(fData, ROImask, sigma = None, standardize = True):
         ROImask_c       :   cleaned ROImask 
         n               :   fraction of broken voxels
         
+        
+        Notes
+        ----------
+        This function uses a binary ROImask to extract a
+        subset of timeseries from an EPI image (rs-fMRI data).
+        Functional data can be passed as path to a *.nii.gz file
+        (in that case exploiting Nilear.image.get-data() ) or
+        directly as a 4D array object.
+        By default, it authomatically removes broken voxels from
+        the timeseries set by running remove_broken_voxels(),
+        and returns a "cleaned" version of the ROImask given as
+        argument.
+        Arguments sigma and standardize eventually control
+        the basic preprocessing of the signal.
+        
+        See Also:
+        ----------
+        remove_broken_voxels()
+        scipy.ndimage.gaussian_filter1d()
+        
+        
     """
     
-    if not isinstance(fData, np.ndarray):
-        if os.path.isfile(fData):
-            logging.debug(f"extracting_timeseries: argument fData is path: getting data from {fData}")
-            fData = image.get_data(fData)
-    if not isinstance(ROImask, np.ndarray):   
-        if os.path.isfile(ROImask):  
-            logging.debug(f"extracting_timeseries: argument ROImask is path: getting data from {ROImask}")
-            ROImask = image.get_data(ROImask)
-            
+    fData = _if_notArray_getFromFile(fData)
+    ROImask = _if_notArray_getFromFile(ROImask)
+        
     tSeries = fData[ROImask.astype(bool)].T
         
     tSeries_c, ROImask_c, n = remove_broken_voxels(tSeries, ROImask)
@@ -160,11 +291,12 @@ def extract_timeseries(fData, ROImask, sigma = None, standardize = True):
 def ts_stats(tSeries):
     """
         Estimate average signal, average standard deviation and
-        average SNR of a set of signals
+        average SNR of a set of signals.
         
         Parameters
         ----------
-        tSeries     :   TxN timeseries set (T = n.timepoints, 
+        tSeries     :   (array-like)
+                        TxN timeseries set (T = n.timepoints, 
                                             N = n.samples)
         
         Returns
@@ -173,11 +305,18 @@ def ts_stats(tSeries):
         ts_s        :   average std dev
         SNR         :   average signal-noise ratio
         
+        Notes
+        ----------
+        This function computes an average signal out of
+        a set of timeseries of equal length.
+        For each timepoint, SNR is estimated as the absolute
+        value of signal mean / signal standard deviation; average
+        SNR is then estimated as average value over the whole
+        signals length. 
+
     """
-    if np.any(np.shape(tSeries))==0:
-        raise ValueError("invalid shape for argument tSeries")
-    if np.size(tSeries)==0:
-        raise ValueError("argument tSeries is empty!")
+    
+    _check_tSeries_arg(tSeries)
 
     ts_m = np.average(tSeries, axis=1)
     ts_s = np.std(tSeries, axis=1)
@@ -209,6 +348,8 @@ def plot_meanTs(tSeries, ax=None, TR = 1, shadeColor = 'white', **plt_kwargs):
         
     """
     
+    _check_tSeries_arg(tSeries)
+    
     if ax is None:
         logging.debug("plot_meanTs: creating new axes")
         ax = plt.gca()
@@ -224,5 +365,4 @@ def plot_meanTs(tSeries, ax=None, TR = 1, shadeColor = 'white', **plt_kwargs):
     ax.set_xlabel("Time (s)")
     ax.set_title(f"avg SNR: {SNR:.5f}")
     return SNR
-
 
