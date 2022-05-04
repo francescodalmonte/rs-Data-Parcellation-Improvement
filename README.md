@@ -75,7 +75,7 @@ or in multiROI mode
 python rsDPI.py -m -v
 ```
 
-In '/rois' are available a set of MNI-registered ROIs from the Brainnetome DMN parcellation (atlas.brainnetome.org), which can be used to test the algorithm; in '/std' are available some standard T1-brains from MNI, useful for visualization of results. If you don't need any of those you may simply delete the two directories.
+In /'rois' are available a set of MNI-registered ROIs from the Brainnetome DMN parcellation (atlas.brainnetome.org), which can be used to test the algorithm; in /'std' are available some standard T1-brains from MNI, useful for visualization of results. If you don't need any of those you may simply delete the two directories.
 
 
 ## Author
