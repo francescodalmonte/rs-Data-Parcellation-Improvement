@@ -69,13 +69,9 @@ def average_correlation(tSeries):
     utils._check_tSeries_arg(tSeries)
     
     # internal correlation matrix   
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        corrMat = np.corrcoef(tSeries, rowvar=False)
-    if not np.all(corrMat==corrMat):
-        tSeries, _ = utils.remove_broken_voxels(tSeries)
-        utils._check_tSeries_arg(tSeries) 
-        corrMat = np.corrcoef(tSeries, rowvar=False)
+    tSeries, _, _ = utils.remove_broken_voxels(tSeries)
+    utils._check_tSeries_arg(tSeries) 
+    corrMat = np.corrcoef(tSeries, rowvar=False)
         
     np.fill_diagonal(corrMat,0)
     # avg corrcoef values
