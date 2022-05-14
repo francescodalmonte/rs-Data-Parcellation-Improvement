@@ -113,7 +113,7 @@ def remove_broken_voxels(tSeries, ROImask=None, threshold = 1e-6):
         Returns
         ----------
         tSeries_clean   :   cleaned timeseries set
-        ROImask_clean   :   cleaned mask (optional)
+        ROImask_clean   :   cleaned mask (or NaN)
         n               :   fraction of removed samples
         
         
@@ -168,29 +168,28 @@ def remove_broken_voxels(tSeries, ROImask=None, threshold = 1e-6):
     # voxels with const timeseries for the whole rs length
     broken_1 = np.all(np.abs(tSeries-np.mean(tSeries, axis=0))<threshold, axis=0).astype(int)
     # voxels with NaN values
-    broken_2 = np.any(tSeries!=tSeries, axis=0).astype(int)
+    broken_2 = np.any(np.isnan(tSeries), axis=0).astype(int)
     
     # broken voxels
     broken_voxels = np.logical_or(broken_1, broken_2)
     
     if not np.any(broken_voxels):
         logging.debug(f"no broken voxels")
-        if ROImask is None:
-            return tSeries.copy(), 0
-        else:
-            return tSeries.copy(), ROImask, 0
+        return tSeries.copy(), ROImask, 0
+    
     else:
         # remove corresponding ts
         tSeries_clean = tSeries[:,np.logical_not(broken_voxels)].copy()
         # fraction of broken voxels
         n = (len(tSeries.T)-len(tSeries_clean.T))/len(tSeries.T)
         logging.debug(f"% broken voxels: {n*100:.2f}")
-        if ROImask is None:
-            return tSeries_clean, n            
-        else:
+        if ROImask is not None:
             # remove voxels from ROImask
             ROImask_clean = ROImask - back_project(broken_voxels, ROImask)
-            return tSeries_clean, ROImask_clean, n
+        else:
+            ROImask_clean = None
+            
+        return tSeries_clean, ROImask_clean, n
 
 
 
