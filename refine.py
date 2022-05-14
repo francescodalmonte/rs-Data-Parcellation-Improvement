@@ -151,12 +151,12 @@ def quantile_threshold(map3D, quantileTh, onlyEdges=True):
         
     """
     
-    threshold_value = np.quantile(map3D[map3D==map3D], quantileTh)
+    threshold_value = np.quantile(map3D[~np.isnan(map3D)], quantileTh)
     if threshold_value == 0:
         warnings.warn("Using a threshold value = 0; consider increasing quantileTh value") 
-    threshold = np.ones_like(map3D)*threshold_value
+    threshold = np.full_like(map3D, threshold_value)
     
-    mask = (map3D==map3D).astype(int)
+    mask = ~np.isnan(a)
     
     if onlyEdges:
         edges = np.logical_xor(mask, sp.ndimage.binary_erosion(mask))
