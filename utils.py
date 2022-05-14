@@ -39,9 +39,9 @@ def back_project(array1D, ROImask):
         >>> import numpy as np
         >>> from utils import back_project
         >>> x = np.array([2,3,1,5,7])
-        >>> m = m = np.array([[[0,0,0],[0,0,0],[1,0,0]],
-                              [[0,1,1],[0,0,0],[1,0,0]],
-                              [[0,0,0],[0,1,0],[0,0,0]]])
+        >>> m = np.array([[[0,0,0],[0,0,0],[1,0,0]],
+                         [[0,1,1],[0,0,0],[1,0,0]],
+                         [[0,0,0],[0,1,0],[0,0,0]]])
         >>> back_project(x,m)
         [Out]
         array([[[nan, nan, nan],
@@ -72,15 +72,9 @@ def back_project(array1D, ROImask):
         raise ValueError("x length must match ROI size")
     map3D = np.zeros_like(ROImask).astype(float)
     
-    n=0
-    for x in range(np.shape(ROImask)[0]):
-        for y in range(np.shape(ROImask)[1]):
-            for z in range(np.shape(ROImask)[2]):
-                if ROImask[x,y,z]:
-                    map3D[x,y,z] = array1D[n]
-                    n+=1
-                else: 
-                    map3D[x,y,z] = np.nan
+    map3D[np.nonzero(ROImask)]=array1D
+    map3D[map3D == 0] = np.nan
+    
     return map3D
 
 
