@@ -72,10 +72,9 @@ def back_project(array1D, ROImask):
     
     if np.sum(ROImask)!=len(array1D):
         raise ValueError("x length must match ROI size")
-    map3D = np.zeros_like(ROImask).astype(float)
+    map3D = np.full_like(ROImask, np.nan, dtype=float)
     
     map3D[np.nonzero(ROImask)]=array1D
-    map3D[map3D == 0] = np.nan
     
     return map3D
 

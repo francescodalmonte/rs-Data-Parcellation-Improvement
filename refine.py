@@ -156,7 +156,7 @@ def quantile_threshold(map3D, quantileTh, onlyEdges=True):
         warnings.warn("Using a threshold value = 0; consider increasing quantileTh value") 
     threshold = np.full_like(map3D, threshold_value)
     
-    mask = ~np.isnan(map3D)
+    mask = (~np.isnan(map3D)).astype(int)
     
     if onlyEdges:
         edges = np.logical_xor(mask, sp.ndimage.binary_erosion(mask))
@@ -171,7 +171,7 @@ def quantile_threshold(map3D, quantileTh, onlyEdges=True):
 
 
 
-def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25, return_mode = 'over'):
+def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25):
     """
         Algorithm which refines a ROI segmentation by excluding 
         least internally correlated voxels.
@@ -192,14 +192,11 @@ def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25, return_mod
         quantileTh      :   (float >=0 && <=1)
                             portion of voxels to be discarded
                             
-        return_mode     :   {'over','under','both'}
-                            if 'over' returns mask of over-threshold voxels,
-                            if 'under' returns under-threshold voxels,
-                            if 'both' returns a list with both of them.
         
         Returns
         ----------
-        ROImask_t       :   final ROI mask (or list of masks)
+        ROImask_h       :   over-threshold ROI mask
+        ROImask_l       :   under-threshold ROI mask
         corrMap         :   internal correlation map of the ROI (numpy array)
 
 
@@ -239,14 +236,11 @@ def refine_roi(tSeries, ROImask, onlyEdges = True, quantileTh = 0.25, return_mod
     corrMap = utils.back_project(avg_corr, ROImask)
 
     # apply quantile threshold on correlation map 
-    logging.debug(f"Applying quantile threshold = {quantileTh} (modality '{return_mode}')")
+    logging.debug(f"Applying quantile threshold = {quantileTh}")
     
     ROImask_h, ROImask_l = quantile_threshold(corrMap, quantileTh, onlyEdges = onlyEdges)
 
     logging.debug(f"ROI's volume (before/after): {np.sum(ROImask)}/{np.sum(ROImask_h)}")
     logging.debug(f"removed {100*(np.sum(ROImask_l))/np.sum(ROImask):.3}% volume")
-    if return_mode=='over': return ROImask_h, corrMap 
-    elif return_mode=='under': return ROImask_l, corrMap 
-    elif return_mode=='both': return [ROImask_h,ROImask_l], corrMap
-    else: raise ValueError("invalid 'return-mode' argument: must be one of ['over','under','both']")
-    
+
+    return ROImask_h, ROImask_l, corrMap

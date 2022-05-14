@@ -151,21 +151,15 @@ def test_quantile_threshold_results_complementarity(b, th):
 # REFINE_ROI()
 
 
-def test_refine_roi_return_options():
+def test_refine_roi_return_complementarity():
     """given a random 2D array as timeseries, verify that results
-    obtained with "both" option correspond to those returned with 
-    "over" and "under" and that they are complementary."""
+    obtained are complementary if onlyEdges==False."""
     array = _rand_array(dim=2, x=200, t=50)
     mask = _rand_mask(N=200)
-    
-    over, _ = refine_roi(array, mask, onlyEdges = False,
-                         quantileTh = 0.5, return_mode = 'over')
-    under, _ = refine_roi(array, mask, onlyEdges = False,
-                         quantileTh = 0.5, return_mode = 'under')
-    both, _ = refine_roi(array, mask, onlyEdges = False,
-                         quantileTh = 0.5, return_mode = 'both')
-    
-    assert np.all(both[0] == over) and np.all(both[1] == under)
+
+    over, under, _ = refine_roi(array, mask, onlyEdges = False,
+                         quantileTh = 0.5)
+
     assert not np.all(over + under)
     
 def test_refine_roi_overth_voxels_inside_roi():
@@ -174,8 +168,8 @@ def test_refine_roi_overth_voxels_inside_roi():
     array = _rand_array(dim=2, x=200, t=50)
     mask = _rand_mask(N=200)
     
-    over, _ = refine_roi(array, mask, onlyEdges = False,
-                         quantileTh = 0.5, return_mode = 'over')
+    over, _, _ = refine_roi(array, mask, onlyEdges = False,
+                         quantileTh = 0.5)
     over_th_voxels = np.where(over)
     
     assert np.all(mask[over_th_voxels])
@@ -187,10 +181,10 @@ def test_refine_roi_onlyEdges():
     modifies edges of the roi."""
     array = _rand_array(dim=2, x=6**3, t=50)
     mask = np.pad(np.ones([6,6,6]), pad_width=3, constant_values=0)
-    edges = np.logical_xor(mask, sp.ndimage.binary_erosion(mask))
+    edges = np.logical_xor(mask, sp.ndimage.binary_erosion(mask.astype(bool)))
     
-    refined_mask, _ = refine_roi(array, mask, onlyEdges = True,
-                                 quantileTh = 0.5, return_mode = 'over')
+    refined_mask, _, _ = refine_roi(array, mask, onlyEdges = True,
+                                 quantileTh = 0.5)
 
     diff_mask = np.abs(mask-refined_mask)
     assert np.all(edges[np.where(diff_mask)])

@@ -104,7 +104,7 @@ def main_singleMode(args, config):
                                     ROImask,
                                     onlyEdges = True,
                                     quantileTh = float(config['qTh']),
-                                    return_mode = 'over')
+                                    )
     
     if args.savePlots:
         # PLOT NEW TIMESERIES
