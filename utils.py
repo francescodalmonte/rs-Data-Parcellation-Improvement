@@ -2,6 +2,8 @@
 
 import os
 import logging
+import warnings
+
 
 import numpy as np
 import scipy as sp
@@ -30,7 +32,7 @@ def back_project(array1D, ROImask):
         of ROImask, following incresing order of indexes. 
         It is used in refine_roi() function to re-map a 1D
         array of average correlation values of the voxels of a
-        ROI (computed with average_correlation() )onto the 3D
+        ROI (computed with average_correlation() ) onto the 3D
         original space.
         
         
@@ -314,9 +316,9 @@ def ts_stats(tSeries):
     ts_m = np.average(tSeries, axis=1)
     ts_s = np.std(tSeries, axis=1)
     ts_s[ts_s==0] = np.nan
-    if np.all(ts_s != ts_s):
-        SNR = np.nan
-    else:
+    
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
         SNR = np.nanmean(np.abs(ts_m/ts_s))
     
     return ts_m, ts_s, SNR

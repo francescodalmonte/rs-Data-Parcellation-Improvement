@@ -137,7 +137,7 @@ def test_remove_broken_voxels_PROPERTY_CONSERVATION(list2D, th):
             cases [list2D, list2D_r] to make them numerically comparable"""
     
     list2D = np.asarray(list2D)
-    list2D_r, n = remove_broken_voxels(list2D, threshold = th)
+    list2D_r, _, n = remove_broken_voxels(list2D, threshold = th)
     
     z = np.zeros([1,list2D.shape[1]])
     list2D_pad1 = np.r_[list2D, z]
