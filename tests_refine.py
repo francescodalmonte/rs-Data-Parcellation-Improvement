@@ -24,6 +24,21 @@ def _rand_mask(N=100, mshape=[10,10,10]):
 
 
 
+def test_average_correlation_unit():
+    """given a 2D array, verify average_correlation returns
+    the expected result"""
+    array = np.array([[7,9,9,5,9,8],
+                      [3,8,8,5,8,7],
+                      [4,5,7,5,5,4],
+                      [1,4,5,1,3,3],
+                      [1,1,2,1,2,2]])
+    expected = np.array([0.68292592, 0.75797753, 0.75499549,
+                         0.69981831, 0.76911863, 0.75248621])
+    result = average_correlation(array)
+    
+    assert np.all(np.isclose(result, expected))
+
+
 def test_average_correlation_removing_broken():
     """given a 2D array, verify that average_correlation returns
     an array of the expected length"""
@@ -81,6 +96,32 @@ def test_average_correlation_shuffling_ts():
 
 
 
+def test_quantile_threshold_unit():
+    """given a 3D array and a threshold value, verify that 
+    quantile_threshold returns the expected result"""
+    array = np.array([[[np.nan,np.nan],[np.nan,0],[2     ,5]],
+                      [[np.nan,np.nan],[0     ,1],[2     ,4]],
+                      [[np.nan,np.nan],[1     ,3],[6     ,4]],
+                      [[7     ,     6],[1     ,3],[6     ,4]],
+                      [[9     ,     8],[6     ,7],[2     ,1]]])
+    th = 0.25
+    expected_over = np.array([[[0, 0],[0, 0],[1, 1]],
+                              [[0, 0],[0, 0],[1, 1]],
+                              [[0, 0],[0, 1],[1, 1]],
+                              [[1, 1],[0, 1],[1, 1]],
+                              [[1, 1],[1, 1],[1, 0]]])
+    expected_under = np.array([[[0, 0],[0, 1],[0, 0]],
+                               [[0, 0],[1, 1],[0, 0]],
+                               [[0, 0],[1, 0],[0, 0]],
+                               [[0, 0],[1, 0],[0, 0]],
+                               [[0, 0],[0, 0],[0, 1]]])
+
+    result_over, result_under = quantile_threshold(array, th)
+    assert np.all(result_over==expected_over)
+    assert np.all(result_under==expected_under)
+
+
+    
 @given(th = st.floats(0.01,0.99),
        array3D = hynp.arrays(dtype=float,
                              shape=hynp.array_shapes(min_dims=3,
@@ -139,6 +180,48 @@ def test_quantile_threshold_results_complementarity(b, th, array3D):
 
     
 # REFINE_ROI()
+
+
+
+def test_refine_roi_unit():
+    """given a 2D array and a mask, verify that refine_roi
+    returns the expected results"""
+    array = np.array([[1,3,2,2,1,2],
+                      [2,4,3,4,5,3],
+                      [5,6,7,4,4,4],
+                      [7,7,8,7,6,8],
+                      [7,8,9,8,9,9],
+                      [9,9,9,9,9,9]])
+    mask = np.array([[[1,1],[0,0],[0,0]],
+                     [[0,0],[1,0],[0,0]],
+                     [[0,0],[1,1],[0,1]]])
+    th = 0.4
+    expected_over = np.array([[[1, 1],[0, 0],[0, 0]],
+                              [[0, 0],[0, 0],[0, 0]],
+                              [[0, 0],[1, 0],[0, 1]]])
+    
+    expected_under = np.array([[[0, 0],[0, 0],[0, 0]],
+                               [[0, 0],[1, 0],[0, 0]],
+                               [[0, 0],[0, 1],[0, 0]]])
+    
+    expected_corrmap = np.array([[[0.78526322, 0.79673965],
+                                  [    np.nan,     np.nan],
+                                  [    np.nan,     np.nan]],
+                                 [[    np.nan,     np.nan],
+                                  [0.76693893,     np.nan],
+                                  [    np.nan,     np.nan]],
+                                 [[    np.nan,     np.nan],
+                                  [0.78965239, 0.74584578],
+                                  [    np.nan, 0.78550939]]])
+
+    over, under, corrmap = refine_roi(array, mask, onlyEdges = False,
+                                      quantileTh = th)
+
+    assert np.all(over == expected_over)
+    assert np.all(under == expected_under)
+    assert np.all(np.logical_xor(np.isnan(expected_corrmap),
+                                          np.isclose(expected_corrmap, corrmap)))
+
 
 
 @given(b = st.booleans(), th = st.floats(0.01, 0.99))
