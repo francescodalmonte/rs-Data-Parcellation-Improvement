@@ -90,8 +90,8 @@ def main_singleMode(args, config):
     logging.debug(f"fData path: {fData_path.absolute()}")
     logging.debug(f"ROI mask path: {ROI_path.absolute()}")
     
-    fData = image.get_data(str(fData_path.absolute()))
-    ROImask = image.get_data(str(ROI_path.absolute()))
+    fData = image.get_data(str(fData_path))
+    ROImask = image.get_data(str(ROI_path))
 
     logging.info("Extracting ROI timeseries and plotting...")
     stSeries, ROImask, n = extract_timeseries(fData, ROImask,
@@ -131,7 +131,7 @@ def main_singleMode(args, config):
     logging.debug(f"Results path: {results_dirpath.absolute()}")
     newROI_dirpath.mkdir(exist_ok=True)
     logging.debug(f"new ROI path: {newROI_dirpath.absolute()}")
-    img_newROI = image.new_img_like(image.load_img(str(ROI_path.absolute())),
+    img_newROI = image.new_img_like(image.load_img(str(ROI_path)),
                                     ROImask_t.astype(int))
     img_newROI.to_filename(newROI_dirpath / "newroi.nii.gz")
     if args.savePlots:
@@ -148,33 +148,39 @@ def main_multiMode(args, config):
         Run algorithm for a complete brain parcellation (set of ROIs) 
         
     """
+    
+    # PATHS
+    fData_path = Path(config['fData_path'])
+    ROI_dirpath = Path(config['ROI_dirpath'])
+    results_dirpath = Path(config['results_dirpath'])
+    newROI_dirpath = Path(config['newROI_dirpath'])
+    
     start_time = time.time()
     logging.info("rsDATA PARCELLATION IMPROVEMENT algorithm - (multi ROI)")    
-    newROI_dirpath = Path(config['newROI_dirpath'])
-    if not newROI_dirpath.isdir():
-        os.mkdir()
+    
+    results_dirpath.mkdir(exist_ok=True)
+    newROI_dirpath.mkdir(exist_ok=True)
 
     # EXTRACT TIMESERIES
     logging.info("Loading data from EPI...")
-    fData = image.get_data(config['fData_path'])
+    fData = image.get_data(str(fData_path))
 
-
-    files = os.listdir(config['ROI_dirpath'])
-    for filename in files:
-        if filename[-7:] == '.nii.gz':
+    for filename in ROI_dirpath.iterdir():
+        if filename.suffixes == ['.nii','.gz']:
             singleStart = time.time()
-
-            ROImask = image.get_data(f"{config['ROI_dirpath']}/{filename}")
+            
+            base,_,_ = filename.name.partition('.')
+            ROImask = image.get_data(str(filename))
             
             # EXTRACT TIMESERIES
-            logging.info(f"{filename} : Extracting timeseries...")
+            logging.info(f"{base} : Extracting timeseries...")
             stSeries, ROImask, _ = extract_timeseries(fData, ROImask,
                                                       sigma = float(config['sigma'])
                                                       )
                                                       
             # REFINE ROI
-            logging.info(f"{filename} : ROI refining...")
-            ROImask_t, corrMap = refine_roi(stSeries,
+            logging.info(f"{base} : ROI refining...")
+            ROImask_t, _, corrMap = refine_roi(stSeries,
                                             ROImask,
                                             onlyEdges = True,
                                             quantileTh = float(config['qTh'])
@@ -182,30 +188,30 @@ def main_multiMode(args, config):
             
             if args.savePlots:
                 # EXTRACT NEW TIMESERIES
-                logging.info(f"{filename} : Extracting new timeseries...")
+                logging.info(f"{base} : Extracting new timeseries...")
                 stSeries_t, ROImask_t, _ = extract_timeseries(fData, ROImask_t,
                                                           sigma = float(config['sigma'])
                                                           )
 
             # SAVE RESULTS
-            img_newROI = image.new_img_like(image.load_img(f"{config['ROI_dirpath']}/{filename}"),
+            img_newROI = image.new_img_like(image.load_img(str(filename)),
                                     ROImask_t.astype(int)) 
-            img_newROI.to_filename(f"{config['newROI_dirpath']}/new_{filename}")
+            img_newROI.to_filename(newROI_dirpath / f"new{base}.nii.gz")
 
             if args.savePlots:
                 fig, ax = plt.subplots(figsize=(6,2), dpi=300, tight_layout=True)
                 plot_meanTs(stSeries, ax=ax, TR = 0.735, shadeColor = 'grey',
                         linewidth=1, color='black')
                 ax.set_ylim([-2.5,2.5])
-                fig.savefig(f"{config['results_dirpath']}/{filename[:-7]}_ts.jpg", format="jpg")
+                fig.savefig(results_dirpath/f"{base}_ts.jpg", format="jpg")
 
                 fig, ax = plt.subplots(figsize=(6,2), dpi=300, tight_layout=True)
                 plot_meanTs(stSeries_t, ax=ax, TR = 0.735, shadeColor = 'grey',
                         linewidth=1, color='black')
                 ax.set_ylim([-2.5,2.5])
-                fig.savefig(f"{config['results_dirpath']}/{filename[:-7]}_newts.jpg", format="jpg")
+                fig.savefig(results_dirpath/f"{base}_newts.jpg", format="jpg")
             
-            logging.info(f"{filename} : Elapsed {(time.time()-singleStart):.4}s")
+            logging.info(f"{base} : Elapsed {(time.time()-singleStart):.4}s")
             
     logging.info(f"Finished!\nTotal elapsed time {time.time()-start_time:.4}s ")
 
