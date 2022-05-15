@@ -6,6 +6,7 @@ import sys
 import configparser
 import argparse
 import logging
+from pathlib import Path
 
 from nilearn import image
 from matplotlib import pyplot as plt
@@ -47,13 +48,14 @@ def setup_args():
 
     args = parser.parse_args()
     config = configparser.ConfigParser()
-    if os.path.isfile(args.config):
+    config_path = Path(args.config)
+    if config_path.exists():
         try:
-            config.read(args.config)
+            config.read(config_path)
         except:
-            raise ValueError(f"can't read configuration file {args.config}")
+            raise ValueError(f"can't read configuration file {config_path.absolute()}")
     else:
-        raise ValueError(f"can't find configuration file {args.config}")
+        raise ValueError(f"can't find configuration file {config_path.absolute()}")
     
     return args, config
 
@@ -77,14 +79,19 @@ def main_singleMode(args, config):
     start_time = time.time()
     logging.info("rsDATA PARCELLATION IMPROVEMENT algorithm - (single ROI)")    
 
+    # PATHS
+    fData_path = Path(config['fData_path'])
+    ROI_path = Path(config['ROI_path'])
+    results_dirpath = Path(config['results_dirpath'])
+    newROI_dirpath = Path(config['newROI_dirpath'])
+    
     # EXTRACT TIMESERIES
     logging.info("Loading data from EPI...")
+    logging.debug(f"fData path: {fData_path.absolute()}")
+    logging.debug(f"ROI mask path: {ROI_path.absolute()}")
     
-    logging.debug(f"fData path: {config['fData_path']}")
-    logging.debug(f"ROI mask path: {config['ROI_path']}")
-    
-    fData = image.get_data(config['fData_path'])
-    ROImask = image.get_data(config['ROI_path'])
+    fData = image.get_data(str(fData_path.absolute()))
+    ROImask = image.get_data(str(ROI_path.absolute()))
 
     logging.info("Extracting ROI timeseries and plotting...")
     stSeries, ROImask, n = extract_timeseries(fData, ROImask,
@@ -100,7 +107,7 @@ def main_singleMode(args, config):
 
     # REFINE ROI
     logging.info("Refining ROI...")
-    ROImask_t, corrMap = refine_roi(stSeries,
+    ROImask_t, _, corrMap = refine_roi(stSeries,
                                     ROImask,
                                     onlyEdges = True,
                                     quantileTh = float(config['qTh']),
@@ -120,13 +127,16 @@ def main_singleMode(args, config):
     # SAVE RESULTS
 
     logging.info("Saving results...")
-    logging.debug(f"Results path: {config['results_dirpath']}")
-    img_newROI = image.new_img_like(image.load_img(config['ROI_path']),
-                                    ROImask_t.astype(int)) 
-    img_newROI.to_filename(f"{config['newROI_dirpath']}/newroi.nii.gz")
+    results_dirpath.mkdir(exist_ok=True)
+    logging.debug(f"Results path: {results_dirpath.absolute()}")
+    newROI_dirpath.mkdir(exist_ok=True)
+    logging.debug(f"new ROI path: {newROI_dirpath.absolute()}")
+    img_newROI = image.new_img_like(image.load_img(str(ROI_path.absolute())),
+                                    ROImask_t.astype(int))
+    img_newROI.to_filename(newROI_dirpath / "newroi.nii.gz")
     if args.savePlots:
-        fig_ts.savefig(f"{config['results_dirpath']}/ts_OLD.jpg", format="jpg")
-        fig_ts_new.savefig(f"{config['results_dirpath']}/ts_NEW.jpg", format="jpg")
+        fig_ts.savefig(results_dirpath / "ts_OLD.jpg", format="jpg")
+        fig_ts_new.savefig(results_dirpath / "ts_NEW.jpg", format="jpg")
     
     logging.info(f"Finished!\nTotal elapsed time: {time.time()-start_time:.4}s ")
 
@@ -140,9 +150,9 @@ def main_multiMode(args, config):
     """
     start_time = time.time()
     logging.info("rsDATA PARCELLATION IMPROVEMENT algorithm - (multi ROI)")    
-
-    if not os.path.isdir(config['newROI_dirpath']):
-        os.mkdir(config['newROI_dirpath'])
+    newROI_dirpath = Path(config['newROI_dirpath'])
+    if not newROI_dirpath.isdir():
+        os.mkdir()
 
     # EXTRACT TIMESERIES
     logging.info("Loading data from EPI...")
