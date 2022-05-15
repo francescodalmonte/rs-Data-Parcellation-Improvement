@@ -82,7 +82,20 @@ def back_project(array1D, ROImask):
 
 def _check_tSeries_arg(tSeries):
     """
-        check size and shape of a timeseries set as argument
+        Check size and shape of a timeseries set array.
+        To be valid, timeseries sets must be stored in a 2D array
+        (TxN, with T = timepoints, N = samples), each dimension
+        must have len > 0, number of timepoints must be >= 1; otherwise
+        it raises a ValueError.
+        
+        Parameters
+        ----------
+        tSeries     : timeseries set (array)
+        
+        Returns
+        ----------
+        None
+        
         
     """
     tSeries = np.asarray(tSeries)
@@ -196,17 +209,27 @@ def remove_broken_voxels(tSeries, ROImask=None, threshold = 1e-6):
 
 def _if_notArray_getFromFile(x):
     """
-        if argument x is array returns x, otherwise check whether
-        x is a path to an image and eventually load it as array.
+        If argument x is an array-like object returns x, otherwise
+        checks whether x is a path to an image and eventually load it
+        as array. If x is neither a path, raises TypeError
+        
+        Parameters
+        ----------
+        x   : image (array) or filepath (string)
+        
+        Returns
+        ----------
+        y   : image (array)
+        
     """
     if not isinstance(x, np.ndarray):
         if isinstance(x, str):
             if os.path.isfile(x):
                 logging.debug(f"extracting_timeseries: argument x is path: getting data from {x}")
-                x = image.get_data(x)
+                y = image.get_data(x)
         else:
             raise TypeError(f"invalid type for argument x")
-    return x
+    return y
 
 
 
