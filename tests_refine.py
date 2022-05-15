@@ -143,7 +143,7 @@ def test_quantile_threshold_results_complementarity(b, th, array3D):
 
 @given(b = st.booleans(), th = st.floats(0.01, 0.99))
 def test_refine_roi_return_complementarity(b, th):
-    """given a 2D array as timeseries, verify that results
+    """given a 2D array as timeseries and a mask, verify that results
     obtained are complementary if onlyEdges==False."""
     np.random.seed(1)
     array2D = np.random.rand(10,200)
@@ -157,7 +157,7 @@ def test_refine_roi_return_complementarity(b, th):
 
 @given(b = st.booleans(), th = st.floats(0.01, 0.99))
 def test_refine_roi_overth_voxels_inside_roi(b, th):
-    """given a 2D array as timeseries, verify that 
+    """given a 2D array as timeseries and a mask, verify that 
     over-threshold voxels are always inside the initial ROI."""
     np.random.seed(1)
     array2D = np.random.rand(10,200)
@@ -187,3 +187,20 @@ def test_refine_roi_onlyEdges(th):
     diff_mask = np.abs(mask-refined_mask)
     assert np.all(edges[np.where(diff_mask)])
     
+    
+
+@given(b = st.booleans(), th = st.floats(0.01, 0.99))
+def test_refine_roi_2thresholds_inclusion(b, th):
+    """given a 2D array as timeseries and a mask, verify that refined roi
+    obtained with a lower th is always included inside the one obtained
+    with a higher threshold."""
+    np.random.seed(1)
+    array2D = np.random.rand(10,200)
+    mask = _rand_mask(N=200)
+        
+    refined_1, _, _ = refine_roi(array2D, mask, onlyEdges = b,
+                                 quantileTh = th)
+    refined_2, _, _ = refine_roi(array2D, mask, onlyEdges = b,
+                                 quantileTh = th+(1-th)/2)
+
+    assert np.all(refined_1[np.where(refined_2)])
