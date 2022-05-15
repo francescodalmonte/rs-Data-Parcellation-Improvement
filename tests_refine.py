@@ -12,6 +12,21 @@ from refine import *
 # random arrays and masks generators
 
 def _rand_mask(N=100, mshape=[10,10,10]):
+    """
+    Create a pseudo-random 3D binary mask by randomly filling 
+    N points of an empty (zeros) array of shape = mshape with ones.
+
+    Parameters
+    ----------
+    N        : Volume of the mask (Default = 100)
+    mshape   : Shape (Default = [10,10,10])
+
+    Returns
+    ----------
+    mask    : 3D mask
+
+    """
+    
     np.random.seed(1)
     mask = np.random.rand(mshape[0],mshape[1],mshape[2])
     val = np.sort(np.reshape(mask, [-1]))[N]
