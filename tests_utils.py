@@ -23,6 +23,24 @@ def _rand_mask(N=100, mshape=[10,10,10]):
     
 
 
+def test_back_projection_unit():
+    """given an array, given a 3D mask, verify that back_project 
+    returns the expected result"""
+    array = [0,1,2,3,4,5,6,7,8,9] 
+    mask = [[[0,0,1],[0,0,1],[0,1,0]],
+            [[0,0,0],[0,0,0],[0,0,1]],
+            [[0,1,1],[0,1,1],[0,1,1]]] 
+    map3D = back_project(array,mask)
+    
+    expected = [[[np.nan,np.nan,     0],[np.nan,np.nan,     1],[np.nan,     2,np.nan]],
+                [[np.nan,np.nan,np.nan],[np.nan,np.nan,np.nan],[np.nan,np.nan,     3]],
+                [[np.nan,     4,     5],[np.nan,     6,     7],[np.nan,     8,     9]]]
+    comparison = np.logical_xor(np.isnan(map3D), map3D == expected)
+    
+    assert np.all(comparison) 
+    
+    
+
 def test_back_projection_empty_mask():
     """given an empty array, verify that back_projection
     returns an empty map"""
@@ -75,6 +93,23 @@ def test_back_projection_PROPERTY_INVERSE(array):
 
 
 
+def test_remove_broken_voxels_unit():
+    """given a 2D array, verify that remove_broken_voxels returns 
+    the expected result"""
+    array2D = np.array([[1,2,1,3],
+                        [1,2,4,3],
+                        [1,np.nan,1,0],
+                        [1,np.nan,1,3]])
+    cleaned, _, n = remove_broken_voxels(array2D)
+    expected = np.array([[1,3],
+                         [4,3],
+                         [1,0],
+                         [1,3]])
+    assert np.all(cleaned==expected)
+    assert n == 0.5
+    
+    
+    
 def test_remove_broken_voxels_empty_ts():
     """given an empty or invalid argument, verify that 
     broken_voxels raises the correct errors"""
@@ -128,6 +163,29 @@ def test_remove_broken_voxels_PROPERTY_CONSERVATION(th, array2D):
 
 
 
+def test_extract_timeseries_unit():
+    """given a 4D array and a 3D binary mask, verify that
+    extract_timeseries returns the expected result"""
+    array4D = np.array([[[[1,2,3],[4,5,6]],
+                         [[2,3,4],[5,6,7]],
+                         [[3,4,5],[6,7,8]]],
+                        [[[3,2,1],[6,5,4]],
+                         [[4,3,2],[7,6,5]],
+                         [[5,4,3],[8,7,6]]],
+                        [[[9,8,7],[6,5,4]],
+                         [[3,2,1],[9,8,7]],
+                         [[6,5,4],[3,2,1]]]])
+    mask = np.array([[[1,1],[0,0],[0,0]],
+                     [[0,0],[1,0],[0,0]],
+                     [[0,0],[0,1],[0,1]]])
+    expected = np.array([[1,4,4,9,3],
+                         [2,5,3,8,2],
+                         [3,6,2,7,1]])
+    extracted,_,_ = extract_timeseries(array4D, mask,
+                                       standardize=False, sigma=None)
+    assert np.all(extracted == expected)
+
+
 @given(b = st.booleans(), i = st.floats(0, 10))
 def test_extract_timeseries_zero_fData(b,i):
     """given null fData (==0 everywhere), verify that extract_ts
@@ -165,6 +223,23 @@ def test_extract_timeseries_finalTS_number(b, i, N, array4D):
 
 
 
+def test_ts_stats_unit():
+    """given a 2D array, verify that ts_stats returns the expected results"""
+    array2D = np.array([[1,1,1,2],
+                        [1,2,1,2],
+                        [2,2,3,2],
+                        [2,2,2,np.nan]])
+    ts_m_exp = np.array([1.25, 1.5 , 2.25, np.nan])
+    ts_s_exp = np.array([0.4330127, 0.5, 0.4330127, np.nan])
+    SNR_exp = 3.6943012562182536
+    ts_m, ts_s, SNR = ts_stats(array2D)
+    
+    assert np.all(np.logical_xor(np.isnan(ts_m_exp), np.isclose(ts_m, ts_m_exp)))
+    assert np.all(np.logical_xor(np.isnan(ts_s_exp), np.isclose(ts_s, ts_s_exp)))
+    assert np.isclose(SNR, SNR_exp)
+    
+    
+    
 def test_ts_stats_empty_ts():
     """given invalid arguments, verify that ts_stats returns
     expected errors"""
