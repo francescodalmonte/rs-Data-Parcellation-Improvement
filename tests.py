@@ -35,7 +35,30 @@ def _rand_mask(N=100, mshape=[10,10,10]):
     return mask.astype(int)
 
 
-
+# test for random mask generator
+@given(N = st.integers(1, 100))
+def test_rand_mask_sum(N):
+    """given a random integer value, verify that, when such value
+    is passed as argument N to _rand_mask, the sum of the values 
+    in the resulting mask equal N"""
+    mask = _rand_mask(N=N, mshape=[10,10,10])
+    masksum = np.sum(mask)
+    
+    assert masksum == N
+    
+@given(N = st.integers(1, 20),
+       m = st.integers(4,20))
+def test_rand_mask_sum_zeros(N,m):
+    """given a random arguments to _rand_mask, verify that number
+    of zeros in the resulting mask is "complementary" to the first
+    argument"""
+    mask = _rand_mask(N=N, mshape=[m,m,m])
+    Nzeros = np.sum(mask==0)
+    
+    assert Nzeros == m**3 - N
+    
+    
+    
 # utils.py
 
 
