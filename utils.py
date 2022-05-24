@@ -229,6 +229,8 @@ def _if_notArray_getFromFile(x):
                 y = image.get_data(x)
         else:
             raise TypeError(f"invalid type for argument x")
+    else:
+        y = x
     return y
 
 
